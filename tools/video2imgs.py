@@ -26,7 +26,7 @@ def extract_frames(video_path, output_folder, interval_seconds):
 
         # Lưu frame sau mỗi khoảng thời gian interval_seconds
         if elapsed_time >= interval_seconds:
-            output_path = os.path.join(output_folder, f"frame_{frame_count}.jpg")
+            output_path = os.path.join(output_folder, f"frame4_{frame_count}.jpg")
             cv2.imwrite(output_path, frame)
             frame_count += 1
             elapsed_time = 0
@@ -39,7 +39,7 @@ def extract_frames(video_path, output_folder, interval_seconds):
 
 if __name__ == "__main__":
     # Thực thi hàm
-    video_path = r"image\output_cam\1713239415171219.mp4"
+    video_path = r"image\output_cam\17132625957495763.mp4"
     output_folder = r"image"
-    interval_seconds = 1  # Khoảng cách giữa các frame là bao nhiêu giây
+    interval_seconds = 0.8  # Khoảng cách giữa các frame là bao nhiêu giây
     extract_frames(video_path, output_folder, interval_seconds)

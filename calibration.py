@@ -2,65 +2,132 @@ import numpy as np
 import cv2 as cv
 import glob
 import pickle
+import os
 
 
-################ FIND CHESSBOARD CORNERS - OBJECT POINTS AND IMAGE POINTS #############################
+class calibrate:
+    def calculate_calibration_data(
+        self,
+        run=1,
+        chessboardSize=(9, 6),
+        size_of_chessboard_squares_mm=25,
+        framesize=(1280, 720),
+        calibrationDir=None,
+        savepath=None,
+        saveformat="pkl",
+    ):
+        if run:
+            # FIND CHESSBOARD CORNERS - OBJECT POINTS AND IMAGE POINTS
+            # termination criteria
+            criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 
-chessboardSize = (9, 6)
+            # prepare object points, like (0,0,0), (1,0,0), (2,0,0) ....,(6,5,0)
+            objp = np.zeros((chessboardSize[0] * chessboardSize[1], 3), np.float32)
+            objp[:, :2] = np.mgrid[
+                0 : chessboardSize[0], 0 : chessboardSize[1]
+            ].T.reshape(-1, 2)
+            objp = objp * size_of_chessboard_squares_mm
 
-# termination criteria
-criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
+            # Arrays to store object points and image points from all the images.
+            objpoints = []  # 3d point in real world space
+            imgpoints = []  # 2d points in image plane.
+            images = glob.glob(calibrationDir)
+            for image in images:
 
-# prepare object points, like (0,0,0), (1,0,0), (2,0,0) ....,(6,5,0)
-objp = np.zeros((chessboardSize[0] * chessboardSize[1], 3), np.float32)
-objp[:, :2] = np.mgrid[0 : chessboardSize[0], 0 : chessboardSize[1]].T.reshape(-1, 2)
+                img = cv.imread(image)
+                gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
 
-size_of_chessboard_squares_mm = 25
-objp = objp * size_of_chessboard_squares_mm
+                # Find the chess board corners
+                cornersFound, cornersOrg = cv.findChessboardCorners(
+                    gray, chessboardSize, None
+                )
 
-# Arrays to store object points and image points from all the images.
-objpoints = []  # 3d point in real world space
-imgpoints = []  # 2d points in image plane.
+                # If found, add object points, image points (after refining them)
+                if cornersFound == True:
 
-images = glob.glob("image/data1/*.jpg")
+                    objpoints.append(objp)
+                    cornersRefined = cv.cornerSubPix(
+                        gray, cornersOrg, (11, 11), (-1, -1), criteria
+                    )
+                    imgpoints.append(cornersRefined)
 
-for image in images:
+                    # Draw and display the corners
+                    cv.drawChessboardCorners(
+                        img, chessboardSize, cornersRefined, cornersFound
+                    )
+                    cv.imshow("img", img)
+                    cv.waitKey(1000)
+                cv.destroyAllWindows()
+            # CALIBRATION
+            repError, cameraMatrix, distCoeff, rvecs, tvecs = cv.calibrateCamera(
+                objpoints, imgpoints, framesize, None, None
+            )
+            print("cameraMatrix: ", cameraMatrix)
+            print("\Distortion Coefficent: ", distCoeff)
+            self.Save_Calibration_Data(savepath, saveformat, cameraMatrix, distCoeff)
+            self.Calculate_Reprojection_Error(
+                objpoints, imgpoints, cameraMatrix, distCoeff, rvecs, tvecs
+            )
 
-    img = cv.imread(image)
-    gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+    def Save_Calibration_Data(self, savepath, saveformat, cameraMatrix, distCoeff):
+        # Save the camera calibration result for later use (we won't worry about rvecs / tvecs)
+        if saveformat == "pkl":
+            with open(os.path.join(savepath, "calibration.pkl"), "wb") as f:
+                pickle.dump((cameraMatrix, distCoeff), f)
+        elif saveformat == "yaml":
+            import yaml
 
-    # Find the chess board corners
-    ret, corners = cv.findChessboardCorners(gray, chessboardSize, None)
+            data = {
+                "camera_matrix": np.asarray(cameraMatrix).tolist(),
+                "dist_coeff": np.asarray(distCoeff).tolist(),
+            }
+            with open(os.path.join(savepath, "calibration.pkl"), "w") as f:
+                yaml.dump(data, f)
+        elif saveformat == "npz":
+            paramPath = os.path.join(savepath, "calibration.npz")
+            np.savez(paramPath, camMatrix=cameraMatrix, distCoeff=distCoeff)
 
-    # If found, add object points, image points (after refining them)
-    if ret == True:
+    def Calculate_Reprojection_Error(
+        self, objpoints, imgpoints, cameraMatrix, distCoeff, rvecs, tvecs
+    ):
+        # Reprojection Error
+        mean_error = 0
+        for i in range(len(objpoints)):
+            imgpoints2, _ = cv.projectPoints(
+                objpoints[i], rvecs[i], tvecs[i], cameraMatrix, distCoeff
+            )
+            error = cv.norm(imgpoints[i], imgpoints2, cv.NORM_L2) / len(imgpoints2)
+            mean_error += error
+        print("\nTotal error: {}".format(mean_error / len(objpoints)))
 
-        objpoints.append(objp)
-        corners2 = cv.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
-        imgpoints.append(corners)
+    def Read_Calibration_Data(self, readpath, readformat):
+        if readformat == "pkl":
+            with open(readpath, "rb") as f:
+                pkl_data = pickle.load(f)
+                cameraMatrix, distCoeff = pkl_data
+        elif readformat == "yaml":
+            import yaml
 
-        # Draw and display the corners
-        cv.drawChessboardCorners(img, chessboardSize, corners2, ret)
-        cv.imshow("img", img)
-        cv.waitKey(1000)
+            with open(readpath, "r") as f:
+                yaml_data = yaml.load(f, Loader=yaml.FullLoader)
+                cameraMatrix, distCoeff = (
+                    yaml_data["camera_matrix"],
+                    yaml_data["dist_coeff"],
+                )
+        elif readformat == "npz":
+            npz_data = np.load(readpath)
+            cameraMatrix = npz_data["camMatrix"]
+            distCoeff = npz_data["distCoeff"]
 
-cv.destroyAllWindows()
+        return cameraMatrix, distCoeff
 
-############## CALIBRATION #######################################################
+    def 
 
-ret, cameraMatrix, dist, rvecs, tvecs = cv.calibrateCamera(
-    objpoints, imgpoints, gray.shape[::-1], None, None
-)
-
-# Save the camera calibration result for later use (we won't worry about rvecs / tvecs)
-pickle.dump((cameraMatrix, dist), open("calibration.pkl", "wb"))
-
-############## UNDISTORTION #####################################################
 
 img = cv.imread(r"image\data1\frame_30.jpg")
 h, w = img.shape[:2]
 newCameraMatrix, roi = cv.getOptimalNewCameraMatrix(
-    cameraMatrix, dist, (w, h), 1, (w, h)
+    cameraMatrix, dist, (w, h), 0, (w, h)
 )
 
 
@@ -85,14 +152,7 @@ dst = dst[y2 : y2 + h2, x2 : x2 + w2]
 cv.imwrite(r"image\results\caliResult2.jpg", dst)
 
 
-# Reprojection Error
-mean_error = 0
-
-for i in range(len(objpoints)):
-    imgpoints2, _ = cv.projectPoints(
-        objpoints[i], rvecs[i], tvecs[i], cameraMatrix, dist
-    )
-    error = cv.norm(imgpoints[i], imgpoints2, cv.NORM_L2) / len(imgpoints2)
-    mean_error += error
-
-print("total error: {}".format(mean_error / len(objpoints)))
+if __name__ == "__main__":
+    chessboardSize = (9, 6)
+    framesize = (1280, 720)
+    calibrationDir = r"image\data1\*.jpg"

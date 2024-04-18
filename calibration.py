@@ -6,6 +6,9 @@ import os
 
 
 class calibrate:
+    def __init__(self):
+        pass
+
     def calculate_calibration_data(
         self,
         run=1,
@@ -15,6 +18,7 @@ class calibrate:
         calibrationDir=None,
         savepath=None,
         saveformat="pkl",
+        show_img=True,
     ):
         if run:
             # FIND CHESSBOARD CORNERS - OBJECT POINTS AND IMAGE POINTS
@@ -51,20 +55,22 @@ class calibrate:
                     )
                     imgpoints.append(cornersRefined)
 
-                    # Draw and display the corners
-                    cv.drawChessboardCorners(
-                        img, chessboardSize, cornersRefined, cornersFound
-                    )
-                    cv.imshow("img", img)
-                    cv.waitKey(1000)
+                    if show_img:
+                        # Draw and display the corners
+                        cv.drawChessboardCorners(
+                            img, chessboardSize, cornersRefined, cornersFound
+                        )
+                        cv.imshow("img", img)
+                        cv.waitKey(1000)
                 cv.destroyAllWindows()
             # CALIBRATION
             repError, cameraMatrix, distCoeff, rvecs, tvecs = cv.calibrateCamera(
                 objpoints, imgpoints, framesize, None, None
             )
-            print("cameraMatrix: ", cameraMatrix)
-            print("\Distortion Coefficent: ", distCoeff)
+            print("Camera Matrix: ", cameraMatrix)
+            print("\nDistortion Coefficent: ", distCoeff)
             self.Save_Calibration_Data(savepath, saveformat, cameraMatrix, distCoeff)
+            print("\nSave file succesfully!")
             self.Calculate_Reprojection_Error(
                 objpoints, imgpoints, cameraMatrix, distCoeff, rvecs, tvecs
             )
@@ -101,6 +107,9 @@ class calibrate:
         print("\nTotal error: {}".format(mean_error / len(objpoints)))
 
     def Read_Calibration_Data(self, readpath, readformat):
+        if not os.path.exists(readpath):
+            raise FileNotFoundError(f"File '{readpath}' not found")
+
         if readformat == "pkl":
             with open(readpath, "rb") as f:
                 pkl_data = pickle.load(f)
@@ -110,49 +119,81 @@ class calibrate:
 
             with open(readpath, "r") as f:
                 yaml_data = yaml.load(f, Loader=yaml.FullLoader)
+                if "camera_matrix" not in yaml_data or "dist_coeff" not in yaml_data:
+                    raise ValueError(
+                        "Invalid YAML format: 'camera_matrix' and 'dist_coeff' keys not found"
+                    )
                 cameraMatrix, distCoeff = (
                     yaml_data["camera_matrix"],
                     yaml_data["dist_coeff"],
                 )
         elif readformat == "npz":
             npz_data = np.load(readpath)
+            if "camMatrix" not in npz_data or "distCoeff" not in npz_data:
+                raise ValueError(
+                    "Invalid NPZ format: 'camMatrix' and 'distCoeff' keys not found"
+                )
             cameraMatrix = npz_data["camMatrix"]
             distCoeff = npz_data["distCoeff"]
-
+        else:
+            raise ValueError(
+                "Invalid format. Supported formats are: 'pkl', 'yaml', 'npz'"
+            )
+        print(cameraMatrix, distCoeff)
         return cameraMatrix, distCoeff
 
-    def 
+    def RemoveDistortion(self, img, cameraMatrix, distCoeff, method="default"):
+        if method not in ["default", "Remapping"]:
+            raise ValueError(
+                "Invalid method. Valid values are 'default' or 'Remapping'."
+            )
 
+        if cameraMatrix is None or distCoeff is None:
+            raise ValueError("Need to provide camera calibration data first!")
 
-img = cv.imread(r"image\data1\frame_30.jpg")
-h, w = img.shape[:2]
-newCameraMatrix, roi = cv.getOptimalNewCameraMatrix(
-    cameraMatrix, dist, (w, h), 0, (w, h)
-)
+        h, w = img.shape[:2]
 
+        newCameraMatrix, roi = cv.getOptimalNewCameraMatrix(
+            cameraMatrix, distCoeff, (w, h), 0, (w, h)
+        )
+        x, y, w, h = roi
 
-# Undistort
-dst = cv.undistort(img, cameraMatrix, dist, None, newCameraMatrix)
-# crop the image
-x1, y1, w1, h1 = roi
-dst = dst[y1 : y1 + h1, x1 : x1 + w1]
+        if method == "default":
+            # Undistort
+            dst = cv.undistort(img, cameraMatrix, distCoeff, None, newCameraMatrix)
+            # crop the image
+            dst = dst[y : y + h, x : x + w]
+        elif method == "Remapping":
+            # Undistort with Remapping
+            mapx, mapy = cv.initUndistortRectifyMap(
+                cameraMatrix, distCoeff, None, newCameraMatrix, (w, h), cv.CV_32FC1
+            )
+            dst = cv.remap(img, mapx, mapy, cv.INTER_LINEAR)
+            # crop the image
+            dst = dst[y : y + h, x : x + w]
 
-cv.imwrite(r"image\results\caliResult1.jpg", dst)
-
-
-# Undistort with Remapping
-mapx, mapy = cv.initUndistortRectifyMap(
-    cameraMatrix, dist, None, newCameraMatrix, (w, h), 5
-)
-dst = cv.remap(img, mapx, mapy, cv.INTER_LINEAR)
-
-# crop the image
-x2, y2, w2, h2 = roi
-dst = dst[y2 : y2 + h2, x2 : x2 + w2]
-cv.imwrite(r"image\results\caliResult2.jpg", dst)
+        return dst
 
 
 if __name__ == "__main__":
+    img = cv.imread(r"image\results\frame_36.jpg")
     chessboardSize = (9, 6)
+    size_of_chessboard_squares_mm = 25
     framesize = (1280, 720)
     calibrationDir = r"image\data1\*.jpg"
+    output_img = r"image\results\dist.jpg"
+
+    calib = calibrate()
+    calib.calculate_calibration_data(
+        0,
+        chessboardSize,
+        size_of_chessboard_squares_mm,
+        framesize,
+        calibrationDir,
+        "",
+        "pkl",
+        True,
+    )
+    cameraMatrix, distCoeff = calib.Read_Calibration_Data(r"calibration.pkl", "pkl")
+    distotion_img = calib.RemoveDistortion(img, cameraMatrix, distCoeff)
+    cv.imwrite(output_img, distotion_img)

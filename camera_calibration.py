@@ -12,14 +12,15 @@ class CameraCalibration:
 
     def calculate_calibration_data(
         self,
-        run=1,
+        run=True,
         chessboardSize=(9, 6),
         size_of_chessboard_squares_mm=25,
         framesize=(1280, 720),
         calibrationDir=None,
         savepath=None,
         saveformat="pkl",
-        show_img=True,
+        show_process_img=True,
+        show_calibration_data=True,
     ):
         if run:
             # FIND CHESSBOARD CORNERS - OBJECT POINTS AND IMAGE POINTS
@@ -36,8 +37,12 @@ class CameraCalibration:
             # Arrays to store object points and image points from all the images.
             objpoints = []  # 3d point in real world space
             imgpoints = []  # 2d points in image plane.
-            images = glob.glob(calibrationDir)
-            for image in images:
+            all_images = []
+            image_formats = ["*.jpg", "*.png"]
+            for image_format in image_formats:
+                images = glob.glob(os.path.join(calibrationDir, image_format))
+                all_images.extend(images)
+            for image in all_images:
 
                 img = cv.imread(image)
                 gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
@@ -56,24 +61,25 @@ class CameraCalibration:
                     )
                     imgpoints.append(cornersRefined)
 
-                    if show_img:
+                    if show_process_img:
                         # Draw and display the corners
                         cv.drawChessboardCorners(
                             img, chessboardSize, cornersRefined, cornersFound
                         )
                         cv.imshow("img", img)
                         cv.waitKey(1000)
-                cv.destroyAllWindows()
+            cv.destroyAllWindows()
             # CALIBRATION
             repError, cameraMatrix, distCoeff, rvecs, tvecs = cv.calibrateCamera(
                 objpoints, imgpoints, framesize, None, None
             )
-            print("Camera Matrix: ", cameraMatrix)
-            print("\nDistortion Coefficent: ", distCoeff)
+            if show_calibration_data:
+                print("Camera Matrix: ", cameraMatrix)
+                print("\nDistortion Coefficent: ", distCoeff)
             self.cameraMatrix = cameraMatrix
             self.distCoeff = distCoeff
             self.save_calibration_data(savepath, saveformat, cameraMatrix, distCoeff)
-            print("\nSave file succesfully!")
+            print("\nSave calibration data file succesfully!")
             self.calculate_reprojection_error(
                 objpoints, imgpoints, cameraMatrix, distCoeff, rvecs, tvecs
             )
@@ -109,7 +115,7 @@ class CameraCalibration:
             mean_error += error
         print("\nTotal error: {}".format(mean_error / len(objpoints)))
 
-    def read_calibration_data(self, readpath, readformat):
+    def read_calibration_data(self, readpath, readformat, show_data=False):
         if not os.path.exists(readpath):
             raise FileNotFoundError(f"File '{readpath}' not found")
 
@@ -142,11 +148,14 @@ class CameraCalibration:
             raise ValueError(
                 "Invalid format. Supported formats are: 'pkl', 'yaml', 'npz'"
             )
-        print(_cameraMatrix, _distCoeff)
+        if show_data:
+            print(_cameraMatrix, _distCoeff)
         self.cameraMatrix = _cameraMatrix
         self.distCoeff = _distCoeff
 
-    def remove_distortion(self, img, method="default", img_size=(1280, 720)):
+    def remove_distortion(
+        self, img, method="default", img_size=(1280, 720), verbose=False
+    ):
         if method not in ["default", "Remapping"]:
             raise ValueError(
                 "Invalid method. Valid values are 'default' or 'Remapping'."
@@ -185,28 +194,25 @@ class CameraCalibration:
             # crop the image
             dst = dst[y : y + h, x : x + w]
         resize_img = cv.resize(dst, img_size)
+        if verbose:
+            print("\nRemove distortion succesfully!")
         return resize_img
 
 
 if __name__ == "__main__":
     img = cv.imread(r"image\results\frame_36.jpg")
-    chessboardSize = (9, 6)
-    size_of_chessboard_squares_mm = 25
-    framesize = (1280, 720)
-    calibrationDir = r"image\calibration_dir\*.jpg"
-    output_img = r"image\results\dist.jpg"
 
     calibrator = CameraCalibration()
     calibrator.calculate_calibration_data(
-        0,
-        chessboardSize,
-        size_of_chessboard_squares_mm,
-        framesize,
-        calibrationDir,
-        "",
-        "pkl",
-        True,
+        run=False,
+        chessboardSize=(9, 6),
+        size_of_chessboard_squares_mm=25,
+        framesize=(1280, 720),
+        calibrationDir=r"image\calibration_dir",
+        outputDir="",
+        saveformat="pkl",
+        show_img=True,
     )
-    calibrator.read_calibration_data(r"calibration.pkl", "pkl")
-    distotion_img = calibrator.remove_distortion(img)
-    cv.imwrite(output_img, distotion_img)
+    calibrator.read_calibration_data(r"calibration.pkl", "pkl", True)
+    distotion_img = calibrator.remove_distortion(img, verbose=True)
+    cv.imwrite(r"image\results\dist.jpg", distotion_img)

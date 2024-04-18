@@ -160,7 +160,7 @@ cython_debug/
 #.idea/
 
 
-image\data2
-image\output_cam
-tools
+\image\data2
+\image\output_cam
+\tools
 

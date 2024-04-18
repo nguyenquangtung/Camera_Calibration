@@ -5,9 +5,10 @@ import pickle
 import os
 
 
-class calibrater:
+class CameraCalibration:
     def __init__(self):
-        pass
+        self.cameraMatrix = None
+        self.distCoeff = None
 
     def calculate_calibration_data(
         self,
@@ -69,13 +70,15 @@ class calibrater:
             )
             print("Camera Matrix: ", cameraMatrix)
             print("\nDistortion Coefficent: ", distCoeff)
-            self.Save_Calibration_Data(savepath, saveformat, cameraMatrix, distCoeff)
+            self.cameraMatrix = cameraMatrix
+            self.distCoeff = distCoeff
+            self.save_calibration_data(savepath, saveformat, cameraMatrix, distCoeff)
             print("\nSave file succesfully!")
-            self.Calculate_Reprojection_Error(
+            self.calculate_reprojection_error(
                 objpoints, imgpoints, cameraMatrix, distCoeff, rvecs, tvecs
             )
 
-    def Save_Calibration_Data(self, savepath, saveformat, cameraMatrix, distCoeff):
+    def save_calibration_data(self, savepath, saveformat, cameraMatrix, distCoeff):
         # Save the camera calibration result for later use (we won't worry about rvecs / tvecs)
         if saveformat == "pkl":
             with open(os.path.join(savepath, "calibration.pkl"), "wb") as f:
@@ -93,7 +96,7 @@ class calibrater:
             paramPath = os.path.join(savepath, "calibration.npz")
             np.savez(paramPath, camMatrix=cameraMatrix, distCoeff=distCoeff)
 
-    def Calculate_Reprojection_Error(
+    def calculate_reprojection_error(
         self, objpoints, imgpoints, cameraMatrix, distCoeff, rvecs, tvecs
     ):
         # Reprojection Error
@@ -106,14 +109,14 @@ class calibrater:
             mean_error += error
         print("\nTotal error: {}".format(mean_error / len(objpoints)))
 
-    def Read_Calibration_Data(self, readpath, readformat):
+    def read_calibration_data(self, readpath, readformat):
         if not os.path.exists(readpath):
             raise FileNotFoundError(f"File '{readpath}' not found")
 
         if readformat == "pkl":
             with open(readpath, "rb") as f:
                 pkl_data = pickle.load(f)
-                cameraMatrix, distCoeff = pkl_data
+                _cameraMatrix, _distCoeff = pkl_data
         elif readformat == "yaml":
             import yaml
 
@@ -121,9 +124,9 @@ class calibrater:
                 yaml_data = yaml.load(f, Loader=yaml.FullLoader)
                 if "camera_matrix" not in yaml_data or "dist_coeff" not in yaml_data:
                     raise ValueError(
-                        "Invalid YAML format: 'camera_matrix' and 'dist_coeff' keys not found"
+                        "Invalid YAML format: 'camera_matrix' and 'dist_coeff' keys not found."
                     )
-                cameraMatrix, distCoeff = (
+                _cameraMatrix, _distCoeff = (
                     yaml_data["camera_matrix"],
                     yaml_data["dist_coeff"],
                 )
@@ -131,48 +134,58 @@ class calibrater:
             npz_data = np.load(readpath)
             if "camMatrix" not in npz_data or "distCoeff" not in npz_data:
                 raise ValueError(
-                    "Invalid NPZ format: 'camMatrix' and 'distCoeff' keys not found"
+                    "Invalid NPZ format: 'camMatrix' and 'distCoeff' keys not found."
                 )
-            cameraMatrix = npz_data["camMatrix"]
-            distCoeff = npz_data["distCoeff"]
+            _cameraMatrix = npz_data["camMatrix"]
+            _distCoeff = npz_data["distCoeff"]
         else:
             raise ValueError(
                 "Invalid format. Supported formats are: 'pkl', 'yaml', 'npz'"
             )
-        print(cameraMatrix, distCoeff)
-        return cameraMatrix, distCoeff
+        print(_cameraMatrix, _distCoeff)
+        self.cameraMatrix = _cameraMatrix
+        self.distCoeff = _distCoeff
 
-    def RemoveDistortion(self, img, cameraMatrix, distCoeff, method="default"):
+    def remove_distortion(self, img, method="default", img_size=(1280, 720)):
         if method not in ["default", "Remapping"]:
             raise ValueError(
                 "Invalid method. Valid values are 'default' or 'Remapping'."
             )
 
-        if cameraMatrix is None or distCoeff is None:
-            raise ValueError("Need to provide camera calibration data first!")
+        if self.cameraMatrix is None or self.distCoeff is None:
+            raise ValueError(
+                "Need to read calibration data by using read_calibration_data function before removing distortion!"
+            )
 
         h, w = img.shape[:2]
 
         newCameraMatrix, roi = cv.getOptimalNewCameraMatrix(
-            cameraMatrix, distCoeff, (w, h), 0, (w, h)
+            self.cameraMatrix, self.distCoeff, (w, h), 0, (w, h)
         )
         x, y, w, h = roi
 
         if method == "default":
             # Undistort
-            dst = cv.undistort(img, cameraMatrix, distCoeff, None, newCameraMatrix)
+            dst = cv.undistort(
+                img, self.cameraMatrix, self.distCoeff, None, newCameraMatrix
+            )
             # crop the image
             dst = dst[y : y + h, x : x + w]
         elif method == "Remapping":
             # Undistort with Remapping
             mapx, mapy = cv.initUndistortRectifyMap(
-                cameraMatrix, distCoeff, None, newCameraMatrix, (w, h), cv.CV_32FC1
+                self.cameraMatrix,
+                self.distCoeff,
+                None,
+                newCameraMatrix,
+                (w, h),
+                cv.CV_32FC1,
             )
             dst = cv.remap(img, mapx, mapy, cv.INTER_LINEAR)
             # crop the image
             dst = dst[y : y + h, x : x + w]
-
-        return dst
+        resize_img = cv.resize(dst, img_size)
+        return resize_img
 
 
 if __name__ == "__main__":
@@ -183,8 +196,8 @@ if __name__ == "__main__":
     calibrationDir = r"image\calibration_dir\*.jpg"
     output_img = r"image\results\dist.jpg"
 
-    calib = calibrater()
-    calib.calculate_calibration_data(
+    calibrator = CameraCalibration()
+    calibrator.calculate_calibration_data(
         0,
         chessboardSize,
         size_of_chessboard_squares_mm,
@@ -194,6 +207,6 @@ if __name__ == "__main__":
         "pkl",
         True,
     )
-    cameraMatrix, distCoeff = calib.Read_Calibration_Data(r"calibration.pkl", "pkl")
-    distotion_img = calib.RemoveDistortion(img, cameraMatrix, distCoeff)
+    calibrator.read_calibration_data(r"calibration.pkl", "pkl")
+    distotion_img = calibrator.remove_distortion(img)
     cv.imwrite(output_img, distotion_img)

@@ -5,7 +5,7 @@ import pickle
 import os
 
 
-class calibrate:
+class calibrater:
     def __init__(self):
         pass
 
@@ -180,10 +180,10 @@ if __name__ == "__main__":
     chessboardSize = (9, 6)
     size_of_chessboard_squares_mm = 25
     framesize = (1280, 720)
-    calibrationDir = r"image\data1\*.jpg"
+    calibrationDir = r"image\calibration_dir\*.jpg"
     output_img = r"image\results\dist.jpg"
 
-    calib = calibrate()
+    calib = calibrater()
     calib.calculate_calibration_data(
         0,
         chessboardSize,

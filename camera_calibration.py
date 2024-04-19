@@ -9,6 +9,7 @@ class CameraCalibration:
     def __init__(self):
         self.cameraMatrix = None
         self.distCoeff = None
+        self.new_cameraMatrix = None
 
     def calculate_calibration_data(
         self,
@@ -168,7 +169,7 @@ class CameraCalibration:
 
         h, w = img.shape[:2]
 
-        newCameraMatrix, roi = cv.getOptimalNewCameraMatrix(
+        self.new_cameraMatrix, roi = cv.getOptimalNewCameraMatrix(
             self.cameraMatrix, self.distCoeff, (w, h), 0, (w, h)
         )
         x, y, w, h = roi
@@ -176,7 +177,7 @@ class CameraCalibration:
         if method == "default":
             # Undistort
             dst = cv.undistort(
-                img, self.cameraMatrix, self.distCoeff, None, newCameraMatrix
+                img, self.cameraMatrix, self.distCoeff, None, self.new_cameraMatrix
             )
             # crop the image
             dst = dst[y : y + h, x : x + w]
@@ -186,7 +187,7 @@ class CameraCalibration:
                 self.cameraMatrix,
                 self.distCoeff,
                 None,
-                newCameraMatrix,
+                self.new_cameraMatrix,
                 (w, h),
                 cv.CV_32FC1,
             )
@@ -198,21 +199,42 @@ class CameraCalibration:
             print("\nRemove distortion succesfully!")
         return resize_img
 
+    def map_coordinates(self, coord, M):
+        coord_homogeneous = np.array([[coord[0]], [coord[1]], [1]])
+        transformed_coord = np.dot(M, coord_homogeneous)
+        transformed_coord /= transformed_coord[2]
+        return transformed_coord[0][0], transformed_coord[1][0]
+
+    def convert_coordination(self, x_img, y_img):
+        if self.cameraMatrix is None or self.distCoeff is None:
+            raise ValueError(
+                "Need to read calibration data by using read_calibration_data function before removing distortion!"
+            )
+        if self.new_cameraMatrix is None:
+            _, self.new_cameraMatrix = self.remove_distortion(
+                img, cameraMatrix, distCoeff
+            )
+        # Tính toán ma trận biến đổi từ ảnh gốc đến ảnh đã loại bỏ méo
+        M = np.linalg.inv(self.new_cameraMatrix) @ cameraMatrix
+        # Xác định lại tọa độ từ ảnh gốc tới ảnh đã loại bỏ méo
+        x, y = map_coordinates((x_img, y_img), M)
+        return x, y
+
 
 if __name__ == "__main__":
-    img = cv.imread(r"image\results\frame_36.jpg")
+    # img = cv.imread(r"image\results\frame_36.jpg")
 
     calibrator = CameraCalibration()
     calibrator.calculate_calibration_data(
-        run=False,
+        run=True,
         chessboardSize=(9, 6),
         size_of_chessboard_squares_mm=25,
         framesize=(1280, 720),
-        calibrationDir=r"image\calibration_dir",
-        outputDir="",
+        calibrationDir=r"public\calibration_dir",
+        savepath=r"public",
         saveformat="pkl",
-        show_img=True,
+        show_process_img=True,
     )
-    calibrator.read_calibration_data(r"calibration.pkl", "pkl", True)
-    distotion_img = calibrator.remove_distortion(img, verbose=True)
-    cv.imwrite(r"image\results\dist.jpg", distotion_img)
+    # calibrator.read_calibration_data(r"calibration.pkl", "pkl", True)
+    # distotion_img = calibrator.remove_distortion(img, verbose=True)
+    # cv.imwrite(r"image\results\dist.jpg", distotion_img)

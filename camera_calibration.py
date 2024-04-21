@@ -137,7 +137,7 @@ class CameraCalibration:
                 "camera_matrix": np.asarray(cameraMatrix).tolist(),
                 "dist_coeff": np.asarray(distCoeff).tolist(),
             }
-            with open(os.path.join(savepath, "calibration.pkl"), "w") as f:
+            with open(os.path.join(savepath, "calibration.yaml"), "w") as f:
                 yaml.dump(data, f)
         elif saveformat == "npz":
             paramPath = os.path.join(savepath, "calibration.npz")
@@ -177,7 +177,7 @@ class CameraCalibration:
         elif readformat == "yaml":
             import yaml
 
-            with open(readpath, "r") as f:
+            with open(readpath, "r", encoding="utf-8") as f:
                 yaml_data = yaml.load(f, Loader=yaml.FullLoader)
                 if "camera_matrix" not in yaml_data or "dist_coeff" not in yaml_data:
                     raise ValueError(

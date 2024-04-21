@@ -161,5 +161,5 @@ cython_debug/
 
 /image
 /tools
-/main
+/main.py
 

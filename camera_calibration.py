@@ -288,7 +288,6 @@ class CameraCalibration:
 
 
 if __name__ == "__main__":
-    # img = cv.imread(r"image\results\frame_36.jpg")
 
     calibrator = CameraCalibration()
     calibrator.calculate_calibration_data(
@@ -296,11 +295,20 @@ if __name__ == "__main__":
         chessboardSize=(9, 6),
         size_of_chessboard_squares_mm=25,
         framesize=(1280, 720),
-        calibrationDir=r"public\calibration_dir",
-        savepath=r"public",
-        saveformat="pkl",
-        show_process_img=True,
+        calibrationDir=r"image\calibration_dir",
+        savepath="",
+        saveformat="npz",
+        show_process_img=False,
+        show_calibration_data=True,
     )
-    # calibrator.read_calibration_data(r"calibration.pkl", "pkl", True)
-    # distotion_img = calibrator.remove_distortion(img, verbose=True)
+    calibrator.read_calibration_data(r"calibration.npz", "npz", True)
+
+    ################ Test undistortion img ###########################
+    # img = cv.imread(r"image\results\frame_36.jpg")
+    # distortion_img = calibrator.remove_distortion(img, verbose=True)
     # cv.imwrite(r"image\results\dist.jpg", distotion_img)
+
+    ################ Test undistortion points ########################
+    # points = [(800, 200), (1200, 500)]
+    # new_point = calibrator.undistortion_points(points)
+    # print(new_point)

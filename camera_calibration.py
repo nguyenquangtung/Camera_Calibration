@@ -154,7 +154,7 @@ class CameraCalibration:
         self.cameraMatrix = _cameraMatrix
         self.distCoeff = _distCoeff
 
-    def remove_distortion(
+    def undistortion_img(
         self, img, method="default", img_size=(1280, 720), verbose=False
     ):
         if method not in ["default", "Remapping"]:
@@ -199,26 +199,19 @@ class CameraCalibration:
             print("\nRemove distortion succesfully!")
         return resize_img
 
-    def map_coordinates(self, coord, M):
-        coord_homogeneous = np.array([[coord[0]], [coord[1]], [1]])
-        transformed_coord = np.dot(M, coord_homogeneous)
-        transformed_coord /= transformed_coord[2]
-        return transformed_coord[0][0], transformed_coord[1][0]
-
-    def convert_coordination(self, x_img, y_img):
+    def undistortion_point(self, points, verbose=False):
         if self.cameraMatrix is None or self.distCoeff is None:
             raise ValueError(
                 "Need to read calibration data by using read_calibration_data function before removing distortion!"
             )
-        if self.new_cameraMatrix is None:
-            _, self.new_cameraMatrix = self.remove_distortion(
-                img, cameraMatrix, distCoeff
-            )
-        # Tính toán ma trận biến đổi từ ảnh gốc đến ảnh đã loại bỏ méo
-        M = np.linalg.inv(self.new_cameraMatrix) @ cameraMatrix
-        # Xác định lại tọa độ từ ảnh gốc tới ảnh đã loại bỏ méo
-        x, y = map_coordinates((x_img, y_img), M)
-        return x, y
+        points = np.array([points], dtype="float32")
+        # Undistort
+        undistorted_points = cv.undistortPoints(
+            points, self.cameraMatrix, self.distCoeff
+        )
+        if verbose:
+            print("\nRemove distortion succesfully!")
+        return undistorted_points
 
 
 if __name__ == "__main__":

@@ -15,9 +15,12 @@ calibrator.calculate_calibration_data(
     show_process_img=False,
     show_calibration_data=False,
 )
-calibrator.read_calibration_data(r"calibration.pkl", "pkl", True)
-# distotion_img = calibrator.remove_distortion(img, verbose=True)
-points = [(1000, 250)]
-new_point = calibrator.undistortion_point(points)
-print(new_point)
+calibrator.read_calibration_data(r"calibration.pkl", "pkl", False)
+################ Test undistortion img ###########################
+# distortion_img = calibrator.remove_distortion(img, verbose=True)
 # cv.imwrite(r"image\results\dist.jpg", distotion_img)
+
+################ Test undistortion points ########################
+points = [(800, 200), (1200, 500)]
+new_point = calibrator.undistortion_points(points)
+print(new_point)

@@ -1,3 +1,13 @@
+"""
+Created on Sunday April 21 (12:16) 2024
+@author: Tung Nguyen - Handsome
+reference: Camera Calibration by OpenCV
+          ("https://docs.opencv.org/4.x/dc/dbb/tutorial_py_calibration.html")
+
+My Github: https://github.com/nguyenquangtung 
+My youtube channel: https://www.youtube.com/@tungquangnguyen731 
+"""
+
 import numpy as np
 import cv2 as cv
 import glob
@@ -6,7 +16,14 @@ import os
 
 
 class CameraCalibration:
+    """
+    A class to perform camera calibration based on a set of image points and their corresponding object points.
+    """
+
     def __init__(self):
+        """
+        Initialize the CameraCalibration class.
+        """
         self.cameraMatrix = None
         self.distCoeff = None
         self.new_cameraMatrix = None
@@ -23,6 +40,20 @@ class CameraCalibration:
         show_process_img=True,
         show_calibration_data=True,
     ):
+        """
+        Calculate camera calibration result and save the result for later use.
+
+        Args:
+            run (bool, optional): Flag to indicate whether to run the calibration process. Defaults to True.
+            chessboardSize (tuple, optional): The size of the chessboard (width, height). Defaults to (9, 6).
+            size_of_chessboard_squares_mm (int, optional): The size of the squares on the chessboard in millimeters. Defaults to 25.
+            framesize (tuple, optional): The frame size (width, height). Defaults to (1280, 720).
+            calibrationDir (str, optional): The directory path where calibration images are stored. Defaults to None.
+            savepath (str, optional): The directory path where the calibration data will be saved. Defaults to None.
+            saveformat (str, optional): The format to save the calibration data. Options: "pkl", "yaml", or "npz". Defaults to "pkl".
+            show_process_img (bool, optional): Flag to indicate whether to show the process images during calibration. Defaults to True.
+            show_calibration_data (bool, optional): Flag to indicate whether to show the calibration data. Defaults to True.
+        """
         if run:
             # FIND CHESSBOARD CORNERS - OBJECT POINTS AND IMAGE POINTS
             # termination criteria
@@ -86,6 +117,15 @@ class CameraCalibration:
             )
 
     def save_calibration_data(self, savepath, saveformat, cameraMatrix, distCoeff):
+        """
+        Save the camera calibration result for later use.
+
+        Args:
+            savepath (str): The path where the calibration data will be saved.
+            saveformat (str): The format to save the calibration data. Options: "pkl", "yaml", or "npz".
+            cameraMatrix (numpy.ndarray): The camera matrix.
+            distCoeff (numpy.ndarray): The distortion coefficients.
+        """
         # Save the camera calibration result for later use (we won't worry about rvecs / tvecs)
         if saveformat == "pkl":
             with open(os.path.join(savepath, "calibration.pkl"), "wb") as f:
@@ -116,7 +156,17 @@ class CameraCalibration:
             mean_error += error
         print("\nTotal error: {}".format(mean_error / len(objpoints)))
 
-    def read_calibration_data(self, readpath, readformat, show_data=False):
+    def read_calibration_data(self, readpath, readformat, show_data=True):
+        """
+        Read the camera calibration data.
+
+        Args:
+            readpath (str): The path where the calibration data is stored.
+            readformat (str): The format of the calibration data. Options: "pkl", "yaml", or "npz".
+            show_data(bool, optional): Flag to indicate whether to show data be read. Defaults to True.
+        Returns:
+            tuple: A tuple containing the camera matrix and distortion coefficients.
+        """
         if not os.path.exists(readpath):
             raise FileNotFoundError(f"File '{readpath}' not found")
 
@@ -157,6 +207,18 @@ class CameraCalibration:
     def undistortion_img(
         self, img, method="default", img_size=(1280, 720), verbose=False
     ):
+        """
+        Undistort an image.
+
+        Args:
+            img (numpy.ndarray): The image to undistort.
+            method (str, optional): The method used for distortion removal. Options: "default" or "Remapping". Defaults to "default".
+            img_size (tuple, optional): The size of the image (width, height). Defaults to (1280, 720).
+            verbose (bool, optional): Flag to indicate whether to show process images. Defaults to False.
+
+        Returns:
+            numpy.ndarray: The undistorted image.
+        """
         if method not in ["default", "Remapping"]:
             raise ValueError(
                 "Invalid method. Valid values are 'default' or 'Remapping'."
@@ -199,7 +261,17 @@ class CameraCalibration:
             print("\nRemove distortion succesfully!")
         return resize_img
 
-    def undistortion_point(self, points, verbose=False):
+    def undistortion_points(self, points, verbose=False):
+        """
+        Undistort a set of image points.
+
+        Args:
+            points (numpy.ndarray): The image points to undistort.
+            verbose (bool, optional): Flag to indicate whether to show the process images. Defaults to False.
+
+        Returns:
+            numpy.ndarray: The undistorted points.
+        """
         if self.cameraMatrix is None or self.distCoeff is None:
             raise ValueError(
                 "Need to read calibration data by using read_calibration_data function before removing distortion!"
@@ -209,9 +281,10 @@ class CameraCalibration:
         undistorted_points = cv.undistortPoints(
             points, self.cameraMatrix, self.distCoeff
         )
+        undistorted_points_list = undistorted_points.squeeze().tolist()
         if verbose:
             print("\nRemove distortion succesfully!")
-        return undistorted_points
+        return undistorted_points_list
 
 
 if __name__ == "__main__":

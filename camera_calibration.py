@@ -55,6 +55,7 @@ class CameraCalibration:
             show_calibration_data (bool, optional): Flag to indicate whether to show the calibration data. Defaults to True.
         """
         if run:
+            valid_data_flag = False
             # FIND CHESSBOARD CORNERS - OBJECT POINTS AND IMAGE POINTS
             # termination criteria
             criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
@@ -71,6 +72,8 @@ class CameraCalibration:
             imgpoints = []  # 2d points in image plane.
             all_images = []
             image_formats = ["*.jpg", "*.png"]
+            if not os.path.exists(calibrationDir):
+                raise FileNotFoundError("CalibrationDir path does not exit!")
             for image_format in image_formats:
                 images = glob.glob(os.path.join(calibrationDir, image_format))
                 all_images.extend(images)
@@ -86,7 +89,7 @@ class CameraCalibration:
 
                 # If found, add object points, image points (after refining them)
                 if cornersFound == True:
-
+                    valid_data_flag = True
                     objpoints.append(objp)
                     cornersRefined = cv.cornerSubPix(
                         gray, cornersOrg, (11, 11), (-1, -1), criteria
@@ -101,6 +104,10 @@ class CameraCalibration:
                         cv.imshow("img", img)
                         cv.waitKey(1000)
             cv.destroyAllWindows()
+            if not valid_data_flag:
+                raise Exception(
+                    "All data is not valid, needs to be clearer to be able to identify the chessboard corners!"
+                )
             # CALIBRATION
             repError, cameraMatrix, distCoeff, rvecs, tvecs = cv.calibrateCamera(
                 objpoints, imgpoints, framesize, None, None
@@ -204,9 +211,7 @@ class CameraCalibration:
         self.cameraMatrix = _cameraMatrix
         self.distCoeff = _distCoeff
 
-    def undistortion_img(
-        self, img, method="default", img_size=(1280, 720), verbose=False
-    ):
+    def undistort_img(self, img, method="default", img_size=(1280, 720), verbose=False):
         """
         Undistort an image.
 
@@ -259,32 +264,43 @@ class CameraCalibration:
         resize_img = cv.resize(dst, img_size)
         if verbose:
             print("\nRemove distortion succesfully!")
+            cv.imshow("Undistortion Image", resize_img)
         return resize_img
 
-    def undistortion_points(self, points, verbose=False):
-        """
-        Undistort a set of image points.
+    # def distortion_points(self, points, img, verbose=False):
+    #     """
+    #     Undistort a set of image points.
 
-        Args:
-            points (numpy.ndarray): The image points to undistort.
-            verbose (bool, optional): Flag to indicate whether to show the process images. Defaults to False.
+    #     Args:
+    #         points (numpy.ndarray): The image points to undistort.
+    #         verbose (bool, optional): Flag to indicate whether to show the process images. Defaults to False.
 
-        Returns:
-            numpy.ndarray: The undistorted points.
-        """
-        if self.cameraMatrix is None or self.distCoeff is None:
-            raise ValueError(
-                "Need to read calibration data by using read_calibration_data function before removing distortion!"
-            )
-        points = np.array([points], dtype="float32")
-        # Undistort
-        undistorted_points = cv.undistortPoints(
-            points, self.cameraMatrix, self.distCoeff
-        )
-        undistorted_points_list = undistorted_points.squeeze().tolist()
-        if verbose:
-            print("\nRemove distortion succesfully!")
-        return undistorted_points_list
+    #     Returns:
+    #         numpy.ndarray: The undistorted points.
+    #     """
+    #     if self.cameraMatrix is None or self.distCoeff is None:
+    #         raise ValueError(
+    #             "Need to read calibration data by using read_calibration_data function before removing distortion!"
+    #         )
+    #     points = np.array([points], dtype="float32")
+    #     # Undistort
+    #     h, w = img.shape[:2]
+
+    #     self.new_cameraMatrix, roi = cv.getOptimalNewCameraMatrix(
+    #         self.cameraMatrix, self.distCoeff, (w, h), 0, (w, h)
+    #     )
+    #     ptsTemp = np.array([], dtype="float32")
+    #     rtemp = ttemp = np.array([0, 0, 0], dtype="float32")
+    #     # ptsOut = cv.undistortPoints(points, self.new_cameraMatrix, None)
+    #     ptsTemp = cv.convertPointsToHomogeneous(points)
+    #     output = cv.projectPoints(
+    #         ptsTemp, rtemp, ttemp, self.cameraMatrix, self.distCoeff
+    #     )
+    #     if verbose:
+    #         print("\nRemove distortion succesfully!")
+    #         print("\nOriginal points:", points)
+    #         print("\nUndistorted points:", output)
+    #     return output
 
 
 if __name__ == "__main__":

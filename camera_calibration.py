@@ -327,7 +327,7 @@ if __name__ == "__main__":
         calibrationDir=r"image\calibration_dir",
         savepath="",
         saveformat="npz",
-        show_process_img=False,
+        show_process_img=True,
         show_calibration_data=True,
     )
     calibrator.read_calibration_data(r"calibration.npz", "npz", True)

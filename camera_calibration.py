@@ -13,6 +13,7 @@ import cv2 as cv
 import glob
 import pickle
 import os
+import time
 
 
 class CameraCalibration:
@@ -77,6 +78,13 @@ class CameraCalibration:
             for image_format in image_formats:
                 images = glob.glob(os.path.join(calibrationDir, image_format))
                 all_images.extend(images)
+
+            print("Processing image and find chessboard corners ", end="", flush=True)
+            for _ in range(5):
+                print(".", end="", flush=True)
+                time.sleep(0.25)
+            print()
+
             for image in all_images:
 
                 img = cv.imread(image)
@@ -109,6 +117,11 @@ class CameraCalibration:
                     "All data is not valid, needs to be clearer to be able to identify the chessboard corners!"
                 )
             # CALIBRATION
+            print("Calculating ", end="", flush=True)
+            for _ in range(5):
+                print(".", end="", flush=True)
+                time.sleep(0.25)
+            print()
             repError, cameraMatrix, distCoeff, rvecs, tvecs = cv.calibrateCamera(
                 objpoints, imgpoints, framesize, None, None
             )
@@ -308,8 +321,8 @@ if __name__ == "__main__":
     calibrator = CameraCalibration()
     calibrator.calculate_calibration_data(
         run=True,
-        chessboardSize=(9, 6),
-        size_of_chessboard_squares_mm=25,
+        chessboardSize=(7, 4),
+        size_of_chessboard_squares_mm=100,
         framesize=(1280, 720),
         calibrationDir=r"image\calibration_dir",
         savepath="",

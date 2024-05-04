@@ -4,7 +4,7 @@ Created on Sunday, April 21, 2024
 Author: Tung Nguyen - Handsome  
 Reference: Camera Calibration by OpenCV ([OpenCV Tutorial](https://docs.opencv.org/4.x/dc/dbb/tutorial_py_calibration.html))
 
-![Banner](https://github.com/nguyenquangtung/Camera_Calibration/assets/59195029/2ad0cdd1-dd48-4083-9766-8d42533cd9a0)
+![Banner Tung Handsome Camera Calibration](https://github.com/nguyenquangtung/Camera_Calibration/assets/59195029/023dd5de-9801-44c7-a990-176921246aa8)
 
 ## Overview
 

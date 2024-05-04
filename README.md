@@ -8,7 +8,7 @@ Reference: Camera Calibration by OpenCV ([OpenCV Tutorial](https://docs.opencv.o
 
 ## Overview
 
-This Python script provides a class, `CameraCalibration`, to perform camera calibration based on a set of image points and their corresponding object points.
+This Python script provides a class, `CameraCalibration`, to perform camera calibration based on a set of image points and their corresponding object points / undistort image or frame from camera
 
 ## Description
 

@@ -60,15 +60,18 @@ pip install -r requirements.txt
        chessboardSize=(9, 6),
        size_of_chessboard_squares_mm=25,
        framesize=(1280, 720),
-       calibrationDir=None,
-       savepath=None,
+       calibrationDir=None, #path of calibration dir
+       savepath="",
        saveformat="pkl",
        show_process_img=True,
        show_calibration_data=True,
    )
    ```
-
-4. Undistort an image.
+4. Read calibration data. (run when have calib data already and do not want to calculate calib data from scratch)
+      ```python
+   calibrator.read_calibration_data(r"calibration.pkl", "pkl", True)
+   ```
+6. Undistort an image. (If not calculate calib data from scratch, require to read calib data first)
 
    ```python
    undistorted_image = camera_calibrator.undistortion_img(
